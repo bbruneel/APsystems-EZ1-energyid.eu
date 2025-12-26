@@ -1,5 +1,5 @@
 [project]
-name = "ap-easypower-energieid"
+name = "ap-easypower-energyid"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -21,7 +21,7 @@ dev = [
     "pytest-asyncio>=1.3.0",
 ]
 [project.scripts]
-energieid-monitor = "energieid_monitor.__main__:main"
+energyid-monitor = "energyid_monitor.__main__:main"
 [tool.setuptools]
 # Use find to auto-discover packages in src/ directory and exclude dbscripts
 # This works both in source directory (src-layout) and install directory (flat layout)

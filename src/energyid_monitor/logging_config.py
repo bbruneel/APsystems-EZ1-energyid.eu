@@ -14,7 +14,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from loguru import logger
 
-from energieid_monitor import common
+from energyid_monitor import common
 
 # Load environment variables from .env file
 load_dotenv(override=True)

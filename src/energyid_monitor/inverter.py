@@ -7,7 +7,7 @@ from APsystemsEZ1 import APsystemsEZ1M
 from dotenv import load_dotenv
 from loguru import logger
 
-from energieid_monitor import common
+from energyid_monitor import common
 
 load_dotenv(override=True)
 

@@ -37,12 +37,12 @@ Fill in your EnergyID credentials and inverter IP address.
 ```bash
 cd /var/lib/energyid-monitor
 source .venv/bin/activate
-python -m energieid_monitor
+python -m energyid_monitor
 ```
 
 Or, if installed as a package:
 ```bash
-energieid-monitor
+energyid-monitor
 ```
 
 ### 5. Set up crontab
@@ -141,7 +141,7 @@ cd /tmp/energyid-monitor
 ## Files to Include in Distribution
 
 ### Required Files (Must Include):
-- `src/` - Source code directory containing the `energieid_monitor` package
+- `src/` - Source code directory containing the `energyid_monitor` package
 - `dbscripts/` - Database migration scripts (contains `0001_create_tokens_table.sql`)
 - `pyproject.toml` - Dependencies specification
 - `scripts/` - Deployment and packaging scripts (contains `deploy.sh`, `package.sh`)
@@ -221,7 +221,7 @@ crontab -l
 tail -20 /var/log/energyid/energyid.log
 
 # Manual test run
-cd /var/lib/energyid-monitor && source .venv/bin/activate && python -m energieid_monitor
+cd /var/lib/energyid-monitor && source .venv/bin/activate && python -m energyid_monitor
 ```
 
 ## Version Management

@@ -85,11 +85,11 @@ curl -w "%{response_code}" -X POST "https://hooks.energyid.eu/webhook-in" \
 - Set the required environment variables (can be in `.env`). See [env.example](env.example)
 - Run the end-to-end flow (retrieves tokens via hello, reads live PV from the inverter, posts to webhook-in):
   ```bash
-  python -m energieid_monitor
+  python -m energyid_monitor
   ```
   Or, if installed as a package:
   ```bash
-  energieid-monitor
+  energyid-monitor
   ```
   Output includes structured logs with bearer/twin IDs from hello and the webhook response body.
 
@@ -178,7 +178,7 @@ tail -f /var/log/energyid/energyid.log
 grep "ERROR" /var/log/energyid/energyid.log
 
 # View with debug level (set in .env or environment)
-ENERGYID_LOG_LEVEL=DEBUG python -m energieid_monitor
+ENERGYID_LOG_LEVEL=DEBUG python -m energyid_monitor
 ```
 
 For more detailed logging configuration, see [DEPLOYMENT.md](DEPLOYMENT.md#logging-configuration).
