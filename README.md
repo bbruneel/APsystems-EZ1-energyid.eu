@@ -1,6 +1,14 @@
 # EnergyID Monitor
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Python application that reads solar inverter data from APsystems EZ1 microinverters and sends it to the EnergyID platform every 5 minutes.
+
+This requires
+- an APsystems EZ1 microinverter running in local mode. To set your inverter to local mode you can refer to the instructions here: https://github.com/SonnenladenGmbH/APsystems-EZ1-API#setup-your-inverter (this GitHub repo provides the dependency to access the microinverter)
+- an account on https://www.energyid.eu/en
+  - an incoming webhook configured on the energyid.eu platform as described here: https://help.energyid.eu/en/developer/incoming-webhooks/
+
 
 ## Quick Start for Deployment
 
@@ -26,12 +34,17 @@ Then configure your credentials in the appropriate `.env` file (default: `/var/l
 
 ---
 
-## EnergyID Setup
+## EnergyID webhook Setup
+
+As mentioned above, you need an incoming webhook configured on the energyid.eu platform as described here: https://help.energyid.eu/en/developer/incoming-webhooks/
+
+Step by step instruction is also described here: https://app.energyid.eu/integrations/Webhook-In
 
 Two ready-to-run example curl commands for EnergyID integration.
 
-## Hello endpoint
-Use this to verify provisioning keys and device registration.
+### Hello endpoint
+- Use this to verify provisioning keys and **Device provisioning** and opening the URL in the *Claim* response in a browser.
+- Use it again, after confirming the URL in a browser, to get the *bearer* token and *twin-id*.
 
 ```bash
 curl -X POST "https://hooks.energyid.eu/hello" \
@@ -44,8 +57,8 @@ curl -X POST "https://hooks.energyid.eu/hello" \
   }'
 ```
 
-## Webhook ingestion
-Send measurements to the webhook with the headers from your EnergyID twin.
+### Webhook ingestion
+Do a test and send measurements to the webhook with the headers from the response of the above. Put real data in the payload where `ts` is a https://www.unixtimestamp.com/ and 'pv' is the current total in kWh of your EZ1 microinverter.
 
 ```bash
 curl -w "%{response_code}" -X POST "https://hooks.energyid.eu/webhook-in" \
@@ -54,30 +67,22 @@ curl -w "%{response_code}" -X POST "https://hooks.energyid.eu/webhook-in" \
   -H "x-twin-id: ENERGYID_TWIN_ID" \
   -d '{
     "ts": "1764950877",
-    "pv": 0.1
+    "pv": 67.67
   }'
 ```
 
 ## Troubleshooting
 - Corporate SSL intercepts: point Python/uv to your CA bundle before running commands (PowerShell example)  
   ```powershell
-  $env:SSL_CERT_FILE = 'C:\Program Files\Amazon\AWSCLIV2\awscli\botocore\cacert.pem'
+  $env:SSL_CERT_FILE = 'C:\PathTo\cacert.pem'
   ```
 - Bash example:
   ```bash
-  export SSL_CERT_FILE="/C/Program Files/Amazon/AWSCLIV2/awscli/botocore/cacert.pem"
+  export SSL_CERT_FILE="/PathTo/cacert.pem"
   ```
 
 ## EnergyID Python flow (hello + webhook)
-- Set the required environment variables (can be in `.env`):
-  ```
-  ENERGYID_KEY=...
-  ENERGYID_SECRET=...
-  ENERGYID_YOUR_DEVICE_ID=...
-  ENERGYID_YOUR_DEVICE_NAME=...
-  ENERGYID_HELLO_URL=...
-  ENERGYID_WEBHOOK_URL=...
-  ```
+- Set the required environment variables (can be in `.env`). See [env.example](env.example)
 - Run the end-to-end flow (retrieves tokens via hello, reads live PV from the inverter, posts to webhook-in):
   ```bash
   python -m energieid_monitor
@@ -178,18 +183,10 @@ ENERGYID_LOG_LEVEL=DEBUG python -m energieid_monitor
 
 For more detailed logging configuration, see [DEPLOYMENT.md](DEPLOYMENT.md#logging-configuration).
 
-# Inverter Setup
-## Local inverter configuration
+## Inverter Setup
+### Local inverter configuration
 - Create a `.env` file in the project root or installation directory to set your inverter IP:
   ```
   EZ1_IP_ADDRESS=192.168.0.100
   ```
 - The application will load this value (falling back to `192.168.0.100` if missing).
-- Install python-dotenv if you want automatic `.env` loading:
-  ```bash
-  pip install python-dotenv
-  ```
-  or when using uv
-  ```bash
-  uv add python-dotenv
-  ```
