@@ -2,6 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+[![Release](https://github.com/yourusername/energyid-monitor/actions/workflows/release.yml/badge.svg)](https://github.com/yourusername/energyid-monitor/actions/workflows/release.yml)
+
 Python application that reads solar inverter data from APsystems EZ1 microinverters and sends it to the EnergyID platform every 5 minutes.
 
 This requires
@@ -182,6 +184,36 @@ ENERGYID_LOG_LEVEL=DEBUG python -m energyid_monitor
 ```
 
 For more detailed logging configuration, see [DEPLOYMENT.md](DEPLOYMENT.md#logging-configuration).
+
+## Releases and Versioning
+
+This project uses semantic versioning (e.g., `1.0.0`, `2.1.3`). Releases are automatically created via GitHub Actions when git tags are pushed.
+
+### Downloading Releases
+
+You can download pre-built distribution packages from the [GitHub Releases page](https://github.com/yourusername/energyid-monitor/releases). Each release includes:
+- Distribution package (`energyid-monitor-vX.Y.Z.tar.gz`)
+- Changelog with commits since the previous release
+- Release notes
+
+### Creating a Release
+
+Releases are created automatically when you push a git tag:
+
+```bash
+# Create and push a version tag
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The GitHub Actions workflow will:
+1. Run tests to ensure code quality
+2. Update version in project files
+3. Generate changelog from git commits
+4. Create distribution package
+5. Create a draft GitHub release for review
+
+See [DISTRIBUTION.md](DISTRIBUTION.md) for more details about the release process and packaging.
 
 ## Inverter Setup
 ### Local inverter configuration

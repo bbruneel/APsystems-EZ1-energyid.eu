@@ -61,7 +61,47 @@ For more detailed instructions, see `DEPLOYMENT.md`.
 
 ## For Distributors: How to Package This Application
 
-### Option 1: Create a tarball using package.sh (Recommended)
+### Option 0: Automated Releases via GitHub Actions (Recommended for Maintainers)
+
+This project includes a GitHub Actions workflow that automatically creates distribution packages and GitHub releases when you push a git tag.
+
+**How it works:**
+
+1. **Create and push a git tag:**
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+2. **The workflow automatically:**
+   - Extracts the version from the tag (removes 'v' prefix)
+   - Runs all tests to ensure code quality
+   - Updates version in `pyproject.toml` and `__init__.py`
+   - Generates a changelog from git commits (between previous tag and current tag)
+   - Creates a distribution package using `scripts/package.sh`
+   - Creates a **draft** GitHub release with:
+     - Generated changelog as release notes
+     - Distribution package attached as release asset
+     - Version as release name
+
+3. **Review and publish:**
+   - Go to the [GitHub Releases page](https://github.com/yourusername/energyid-monitor/releases)
+   - Review the draft release
+   - Edit release notes if needed
+   - Publish the release when ready
+
+**Benefits:**
+- Automated testing before release
+- Consistent version management
+- Automatic changelog generation
+- Distribution packages ready for download
+- Draft releases allow manual review before publishing
+
+**Note:** Releases are created as drafts to allow manual review before publishing. This ensures you can verify the changelog and package before making it public.
+
+For more details about the release workflow, see `.github/workflows/release.yml`.
+
+### Option 1: Create a tarball using package.sh (Manual)
 
 Use the included automated packaging script:
 
@@ -304,13 +344,15 @@ The version script is compatible with GitHub Actions and will automatically dete
 - `VERSION` environment variable
 - Git tags in the repository
 
-Example GitHub Actions workflow:
-```yaml
-- name: Package
-  env:
-    VERSION: ${{ github.ref_name }}  # Use tag name as version
-  run: ./scripts/package.sh
-```
+The project includes a complete GitHub Actions workflow (`.github/workflows/release.yml`) that handles the entire release process automatically. When you push a git tag, it will:
+- Extract the version from the tag
+- Run tests
+- Update version files
+- Generate changelog
+- Create distribution package
+- Create a draft GitHub release
+
+See "Option 0: Automated Releases via GitHub Actions" above for more information.
 
 Or use the version script directly:
 ```bash
