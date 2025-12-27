@@ -9,17 +9,18 @@ Python application that reads solar inverter data from APsystems EZ1 microinvert
 This requires
 - an APsystems EZ1 microinverter running in local mode. To set your inverter to local mode you can refer to the instructions here: https://github.com/SonnenladenGmbH/APsystems-EZ1-API#setup-your-inverter You might want to logout from the app on your smartphone when doing so. (this GitHub repo provides the dependency to access the microinverter)
 - an account on https://www.energyid.eu/en
+  - check you account type to see if you are elegible to use webhooks and at which frequency
   - an incoming webhook configured on the energyid.eu platform as described here: https://help.energyid.eu/en/developer/incoming-webhooks/
 
 
-## Quick Start for Deployment
+## Quick Start
 
 See the deployment guides:
 - **[DEPLOYMENT.md](DEPLOYMENT.md)** - Full deployment guide for Linux systems
 - **[CRONTAB-SETUP.md](CRONTAB-SETUP.md)** - Quick guide for crontab configuration
 - **[DISTRIBUTION.md](DISTRIBUTION.md)** - How to package and distribute this application
 
-### Quick Deploy
+### Deploy latest release
 
 Download the latest release from [GitHub Releases](https://github.com/bbruneel/APsystems-EZ1-energyid.eu/releases/latest) and extract the distribution package.
 
@@ -34,19 +35,21 @@ Download the latest release from [GitHub Releases](https://github.com/bbruneel/A
 ./scripts/deploy.sh --help
 ```
 
-Then configure your credentials in the appropriate `.env` file (default: `/var/lib/energyid-monitor/.env`) and set up crontab.
+Then configure your credentials in the appropriate `.env` file See [env.example](env.example) (default: `/var/lib/energyid-monitor/.env`) and set up scheduled runs.
 
 ---
 
-## EnergyID webhook Setup
+### EnergyID webhook Setup
 
 As mentioned above, you need an incoming webhook configured on the energyid.eu platform as described here: https://help.energyid.eu/en/developer/incoming-webhooks/
 
-Step by step instruction is also described here: https://app.energyid.eu/integrations/Webhook-In
+Step by step instructions are also described here: https://app.energyid.eu/integrations/Webhook-In
+
+Update your `.env` file with the information obtained by setting up a webhook.
 
 Two ready-to-run example curl commands for EnergyID integration.
 
-### Hello endpoint
+#### Hello endpoint
 - Use this to verify provisioning keys and **Device provisioning** and opening the URL in the *Claim* response in a browser.
 - Use it again, after confirming the URL in a browser, to get the *bearer* token and *twin-id*.
 
@@ -61,7 +64,8 @@ curl -X POST "https://hooks.energyid.eu/hello" \
   }'
 ```
 
-### Webhook ingestion
+
+#### Webhook ingestion
 Do a test and send measurements to the webhook with the headers from the response of the above. Put real data in the payload where `ts` is a https://www.unixtimestamp.com/ and 'pv' is the current total in kWh of your EZ1 microinverter.
 
 ```bash
@@ -75,8 +79,8 @@ curl -w "%{response_code}" -X POST "https://hooks.energyid.eu/webhook-in" \
   }'
 ```
 
-## Troubleshooting
-- Corporate SSL intercepts: point Python/uv to your CA bundle before running commands (PowerShell example)  
+#### Troubleshooting
+- In case of Corporate SSL intercepts: point Python/uv to your coorporate self signed CA bundle before running commands (PowerShell example)  
   ```powershell
   $env:SSL_CERT_FILE = 'C:\PathTo\cacert.pem'
   ```
@@ -85,17 +89,16 @@ curl -w "%{response_code}" -X POST "https://hooks.energyid.eu/webhook-in" \
   export SSL_CERT_FILE="/PathTo/cacert.pem"
   ```
 
-## EnergyID Python flow (hello + webhook)
-- Set the required environment variables (can be in `.env`). See [env.example](env.example)
-- Run the end-to-end flow (retrieves tokens via hello, reads live PV from the inverter, posts to webhook-in):
-  ```bash
-  python -m energyid_monitor
-  ```
-  Or, if installed as a package:
-  ```bash
-  energyid-monitor
-  ```
-  Output includes structured logs with bearer/twin IDs from hello and the webhook response body.
+### Run the application
+Once everything is properly set up, and depending on on your chosen installation folder, you can use the `run.sh` script to test the app.
+```
+/var/lib/energyid-monitor/run.sh
+```
+
+### Configure scheduled runs
+Either use crontab as described in **[CRONTAB-SETUP.md](CRONTAB-SETUP.md)** or consider using **systemd timers** instead. See **[DISTRIBUTION.md](DISTRIBUTION.md)** for instructions.
+
+# Other information
 
 ## Token Caching Database
 
@@ -193,7 +196,7 @@ This project uses semantic versioning (e.g., `1.0.0`, `2.1.3`). Releases are aut
 
 ### Downloading Releases
 
-You can download pre-built distribution packages from the [GitHub Releases page](https://github.com/yourusername/energyid-monitor/releases). Each release includes:
+You can download pre-built distribution packages from the [GitHub Releases page](https://github.com/bbruneel/APsystems-EZ1-energyid.eu/actions/workflows/release.yml). Each release includes:
 - Distribution package (`energyid-monitor-vX.Y.Z.tar.gz`)
 - Changelog with commits since the previous release
 - Release notes
@@ -216,11 +219,3 @@ The GitHub Actions workflow will:
 5. Create a draft GitHub release for review
 
 See [DISTRIBUTION.md](DISTRIBUTION.md) for more details about the release process and packaging.
-
-## Inverter Setup
-### Local inverter configuration
-- Create a `.env` file in the project root or installation directory to set your inverter IP:
-  ```
-  EZ1_IP_ADDRESS=192.168.0.100
-  ```
-- The application will load this value (falling back to `192.168.0.100` if missing).
