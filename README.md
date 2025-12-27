@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[![Release](https://github.com/yourusername/energyid-monitor/actions/workflows/release.yml/badge.svg)](https://github.com/yourusername/energyid-monitor/actions/workflows/release.yml)
+[![Release](https://github.com/bbruneel/energyid-monitor/actions/workflows/release.yml/badge.svg)](https://github.com/bbruneel/energyid-monitor/actions/workflows/release.yml)
 
 Python application that reads solar inverter data from APsystems EZ1 microinverters and sends it to the EnergyID platform every 5 minutes.
 
