@@ -178,7 +178,7 @@ else
     pip install -e .
 fi
 
-echo "✓ Package installed (energieid-monitor command available)"
+echo "✓ Package installed (energyid-monitor command available)"
 
 # Create .env file if it doesn't exist
 echo ""
@@ -217,7 +217,7 @@ cat > "$INSTALL_DIR/run.sh" << EOF
 #!/bin/bash
 cd $INSTALL_DIR
 source .venv/bin/activate
-python -m energieid_monitor >> $LOG_DIR/energyid.log 2>&1
+python -m energyid_monitor >> $LOG_DIR/energyid.log 2>&1
 EOF
 
 chmod +x "$INSTALL_DIR/run.sh"
@@ -248,7 +248,7 @@ echo ""
 echo "2. Test the application:"
 echo "   cd $INSTALL_DIR"
 echo "   source .venv/bin/activate"
-echo "   python -m energieid_monitor"
+echo "   python -m energyid_monitor"
 echo ""
 echo "3. Set up automatic execution (choose one):"
 echo ""

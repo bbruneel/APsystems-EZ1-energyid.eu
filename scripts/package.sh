@@ -23,8 +23,8 @@ echo "Version: $VERSION"
 echo ""
 
 # Check if we're in the right directory structure
-if [ ! -f "$PROJECT_ROOT/src/energieid_monitor/energyid.py" ]; then
-    echo "❌ Error: src/energieid_monitor/energyid.py not found. Please run this script from the project directory."
+if [ ! -f "$PROJECT_ROOT/src/energyid_monitor/energyid.py" ]; then
+    echo "❌ Error: src/energyid_monitor/energyid.py not found. Please run this script from the project directory."
     exit 1
 fi
 
@@ -46,7 +46,7 @@ tar -czf "$PACKAGE_PATH" \
   --exclude='dist' \
   --exclude='tests' \
   --transform 's,^,energyid-monitor/,' \
-  src/energieid_monitor \
+  src/energyid_monitor \
   dbscripts \
   pyproject.toml \
   scripts/deploy.sh \

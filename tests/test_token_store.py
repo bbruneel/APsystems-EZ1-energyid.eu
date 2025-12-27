@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from energieid_monitor import token_store
-from energieid_monitor.energyid import ProvisioningConfig, get_or_refresh_token
+from energyid_monitor import token_store
+from energyid_monitor.energyid import ProvisioningConfig, get_or_refresh_token
 
 
 @pytest.fixture
@@ -133,7 +133,7 @@ async def test_get_or_refresh_uses_cached_valid_token(
 
     mock_session = AsyncMock()
 
-    with patch("energieid_monitor.energyid.call_hello") as mock_hello:
+    with patch("energyid_monitor.energyid.call_hello") as mock_hello:
         result = await get_or_refresh_token(mock_session, mock_config, in_memory_db)
 
         # Should not call hello
@@ -161,7 +161,7 @@ async def test_get_or_refresh_fetches_new_when_expired(
     mock_session = AsyncMock()
     new_exp = int(time.time()) + 7200
 
-    with patch("energieid_monitor.energyid.call_hello") as mock_hello:
+    with patch("energyid_monitor.energyid.call_hello") as mock_hello:
         mock_hello.return_value = {
             "bearer_token": "new_bearer",
             "twin_id": "new_twin",
@@ -194,7 +194,7 @@ async def test_get_or_refresh_fetches_new_when_no_cache(
     mock_session = AsyncMock()
     new_exp = int(time.time()) + 7200
 
-    with patch("energieid_monitor.energyid.call_hello") as mock_hello:
+    with patch("energyid_monitor.energyid.call_hello") as mock_hello:
         mock_hello.return_value = {
             "bearer_token": "first_bearer",
             "twin_id": "first_twin",

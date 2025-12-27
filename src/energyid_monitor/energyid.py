@@ -8,7 +8,7 @@ import aiohttp
 from dotenv import load_dotenv
 from loguru import logger
 
-from energieid_monitor import common, inverter, logging_config, token_store
+from energyid_monitor import common, inverter, logging_config, token_store
 
 load_dotenv(override=True)
 

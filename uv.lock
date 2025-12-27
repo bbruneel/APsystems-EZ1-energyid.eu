@@ -139,7 +139,7 @@ wheels = [
 ]
 
 [[package]]
-name = "ap-easypower-energieid"
+name = "ap-easypower-energyid"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

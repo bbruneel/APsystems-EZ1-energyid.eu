@@ -57,11 +57,11 @@ The script will automatically:
    ```bash
    cd /var/lib/energyid-monitor
    source .venv/bin/activate
-   python -m energieid_monitor
+   python -m energyid_monitor
    ```
    Or, if installed as a package:
    ```bash
-   energieid-monitor
+   energyid-monitor
    ```
 
 3. **Set up automatic execution** (see sections below for crontab or systemd timer options)
@@ -124,7 +124,7 @@ source .venv/bin/activate
 uv pip install -e .
 ```
 
-This installs the package in editable mode, allowing it to be run as `python -m energieid_monitor` or `energieid-monitor`.
+This installs the package in editable mode, allowing it to be run as `python -m energyid_monitor` or `energyid-monitor`.
 
 Using pip:
 ```bash
@@ -134,7 +134,7 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-This installs the package in editable mode from `pyproject.toml`, which includes all dependencies and allows running as `python -m energieid_monitor` or `energieid-monitor`.
+This installs the package in editable mode from `pyproject.toml`, which includes all dependencies and allows running as `python -m energyid_monitor` or `energyid-monitor`.
 
 ### 5. Configure environment variables
 
@@ -163,12 +163,12 @@ Fill in your actual values:
 ```bash
 cd /var/lib/energyid-monitor
 source .venv/bin/activate
-python -m energieid_monitor
+python -m energyid_monitor
 ```
 
 Or, if installed as a package:
 ```bash
-energieid-monitor
+energyid-monitor
 ```
 
 You should see structured log output showing:
@@ -199,7 +199,7 @@ cat > /var/lib/energyid-monitor/run.sh << 'EOF'
 #!/bin/bash
 cd /var/lib/energyid-monitor
 source .venv/bin/activate
-python -m energieid_monitor >> /var/log/energyid/energyid.log 2>&1
+python -m energyid_monitor >> /var/log/energyid/energyid.log 2>&1
 EOF
 
 chmod +x /var/lib/energyid-monitor/run.sh
@@ -262,7 +262,7 @@ Type=oneshot
 User=YOUR_USERNAME
 WorkingDirectory=/var/lib/energyid-monitor
 Environment="PATH=/var/lib/energyid-monitor/.venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/var/lib/energyid-monitor/.venv/bin/python -m energieid_monitor
+ExecStart=/var/lib/energyid-monitor/.venv/bin/python -m energyid_monitor
 StandardOutput=append:/var/log/energyid/energyid.log
 StandardError=append:/var/log/energyid/energyid.log
 
@@ -364,7 +364,7 @@ ENERGYID_LOG_LEVEL=DEBUG
 
 # Or as environment variable
 export ENERGYID_LOG_LEVEL=DEBUG
-python -m energieid_monitor
+python -m energyid_monitor
 ```
 
 Available log levels (from most verbose to least):
@@ -384,7 +384,7 @@ ENERGYID_LOG_FILE=/path/to/your/logs/energyid.log
 
 # Or as environment variable
 export ENERGYID_LOG_FILE=/home/user/logs/energyid.log
-python -m energieid_monitor
+python -m energyid_monitor
 ```
 
 **Default location**: `/var/log/energyid/energyid.log`
@@ -403,7 +403,7 @@ ENERGYID_CONSOLE_LOGGING=true
 
 # Or as environment variable
 export ENERGYID_CONSOLE_LOGGING=true
-python -m energieid_monitor
+python -m energyid_monitor
 ```
 
 **Default**: `false` (console logging disabled)

@@ -1,5 +1,5 @@
 """
-EnergieID Monitor - Monitor and report PV inverter data to EnergyID platform.
+EnergyID Monitor - Monitor and report PV inverter data to EnergyID platform.
 
 This package provides functionality to:
 - Connect to APsystems EZ1 microinverters

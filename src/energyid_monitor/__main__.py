@@ -1,8 +1,8 @@
-"""Entry point for running energieid_monitor as a module."""
+"""Entry point for running energyid_monitor as a module."""
 
 import asyncio
 
-from energieid_monitor import energyid
+from energyid_monitor import energyid
 
 
 def main() -> None:
