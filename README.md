@@ -21,6 +21,8 @@ See the deployment guides:
 
 ### Quick Deploy
 
+Download the latest release from [GitHub Releases](https://github.com/bbruneel/APsystems-EZ1-energyid.eu/releases/latest) and extract the distribution package.
+
 ```bash
 # Use default directories
 ./scripts/deploy.sh
