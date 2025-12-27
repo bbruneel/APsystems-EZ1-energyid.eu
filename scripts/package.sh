@@ -1,12 +1,33 @@
 #!/bin/bash
 # package.sh - Automated packaging script for distribution
 
-VERSION=${1:-"1.0.0"}
-PACKAGE_NAME="energyid-monitor-v${VERSION}.tar.gz"
+set -e  # Exit on error
 
 # Get the project root directory (parent of scripts/)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Update version in project files before packaging
+# Priority: command line arg > VERSION env var > auto-detect from git > default
+echo "Updating project version..."
+if [ -n "$1" ]; then
+    # Version provided as command line argument
+    "$SCRIPT_DIR/version.sh" "$1"
+elif [ -n "${VERSION:-}" ]; then
+    # Version provided as environment variable
+    "$SCRIPT_DIR/version.sh" "$VERSION"
+else
+    # Try to auto-detect from git or use default
+    if ! "$SCRIPT_DIR/version.sh" 2>/dev/null; then
+        echo "⚠️  Warning: Could not auto-detect version, using default 1.0.0"
+        "$SCRIPT_DIR/version.sh" "1.0.0"
+    fi
+fi
+
+# Read the actual version from pyproject.toml to ensure consistency
+VERSION=$(grep -E '^version = ' "$PROJECT_ROOT/pyproject.toml" | sed -E 's/^version = "([^"]+)"/\1/')
+
+PACKAGE_NAME="energyid-monitor-v${VERSION}.tar.gz"
 
 # Create dist directory if it doesn't exist
 DIST_DIR="$PROJECT_ROOT/dist"
@@ -14,6 +35,7 @@ mkdir -p "$DIST_DIR"
 
 PACKAGE_PATH="$DIST_DIR/$PACKAGE_NAME"
 
+echo ""
 echo "========================================"
 echo "EnergyID Monitor - Distribution Packager"
 echo "========================================"
@@ -50,6 +72,7 @@ tar -czf "$PACKAGE_PATH" \
   dbscripts \
   pyproject.toml \
   scripts/deploy.sh \
+  scripts/version.sh \
   env.example \
   DEPLOYMENT.md \
   CRONTAB-SETUP.md \

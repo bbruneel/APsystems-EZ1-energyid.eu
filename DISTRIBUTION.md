@@ -143,14 +143,15 @@ cd /tmp/energyid-monitor
 ### Required Files (Must Include):
 - `src/` - Source code directory containing the `energyid_monitor` package
 - `dbscripts/` - Database migration scripts (contains `0001_create_tokens_table.sql`)
-- `pyproject.toml` - Dependencies specification
-- `scripts/` - Deployment and packaging scripts (contains `deploy.sh`, `package.sh`)
+- `pyproject.toml` - Dependencies specification (includes version)
+- `scripts/` - Deployment and packaging scripts (contains `deploy.sh`, `package.sh`, `version.sh`)
 - `env.example` - Environment variable template
 - `DEPLOYMENT.md` - Detailed deployment guide
 - `README.md` - Project overview
 
 ### Optional Files:
 - `scripts/package.sh` - Automated packaging script (for distributors)
+- `scripts/version.sh` - Version management script (for distributors)
 - `DISTRIBUTION.md` - This file (for distributors)
 - `CRONTAB-SETUP.md` - Quick crontab setup guide
 - `.python-version` - Python version specification
@@ -226,15 +227,11 @@ cd /var/lib/energyid-monitor && source .venv/bin/activate && python -m energyid_
 
 ## Version Management
 
-Consider adding version information to your distribution:
+The project uses dynamic version management. Versions are automatically updated in:
+- `pyproject.toml` - Package metadata
+- `src/energyid_monitor/__init__.py` - Python module version
 
-```bash
-# Create VERSION file
-echo "1.0.0" > VERSION
-
-# Include in tarball
-tar -czf energyid-monitor-v1.0.0.tar.gz ...
-```
+The `scripts/version.sh` script handles version updates and is automatically called by `package.sh`. See the "Package Script Details" section above for usage examples.
 
 ## Common Recipient Issues
 
@@ -276,13 +273,50 @@ The `scripts/package.sh` script usage:
 ```
 
 **Examples:**
-- `./scripts/package.sh` - Creates package with default version (1.0.0)
+- `./scripts/package.sh` - Auto-detects version from git tag, or uses default (1.0.0)
 - `./scripts/package.sh 1.5.2` - Creates package with version 1.5.2
+- `VERSION=2.0.0 ./scripts/package.sh` - Uses VERSION environment variable
 - `./scripts/package.sh 2.0.0` - Creates package with version 2.0.0
 
 The script automatically:
+- Updates version in `pyproject.toml` and `src/energyid_monitor/__init__.py`
 - Verifies it's in the correct directory
 - Excludes sensitive and unnecessary files
 - Creates proper folder structure
 - Shows package size and contents
 - Provides transfer instructions
+
+### Version Management
+
+The packaging script uses `scripts/version.sh` to manage project versions. The version is updated in:
+- `pyproject.toml` - Package metadata
+- `src/energyid_monitor/__init__.py` - Python module version
+
+**Version Detection Priority:**
+1. Command line argument: `./scripts/package.sh 1.0.0`
+2. Environment variable: `VERSION=1.0.0 ./scripts/package.sh`
+3. Git tag (auto-detect): `./scripts/package.sh` (reads from latest git tag)
+4. Default fallback: `1.0.0`
+
+**For GitHub Actions:**
+The version script is compatible with GitHub Actions and will automatically detect versions from:
+- `GITHUB_REF` environment variable (when triggered by tags)
+- `VERSION` environment variable
+- Git tags in the repository
+
+Example GitHub Actions workflow:
+```yaml
+- name: Package
+  env:
+    VERSION: ${{ github.ref_name }}  # Use tag name as version
+  run: ./scripts/package.sh
+```
+
+Or use the version script directly:
+```bash
+# Update version manually
+./scripts/version.sh 1.0.0
+
+# Or let it auto-detect from git
+./scripts/version.sh
+```
