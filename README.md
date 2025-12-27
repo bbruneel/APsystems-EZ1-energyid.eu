@@ -15,10 +15,7 @@ This requires
 
 ## Quick Start
 
-See the deployment guides:
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Full deployment guide for Linux systems
-- **[CRONTAB-SETUP.md](CRONTAB-SETUP.md)** - Quick guide for crontab configuration
-- **[DISTRIBUTION.md](DISTRIBUTION.md)** - How to package and distribute this application
+Follow these steps to get you up and running.
 
 ### Deploy latest release
 
@@ -96,7 +93,15 @@ Once everything is properly set up, and depending on on your chosen installation
 ```
 
 ### Configure scheduled runs
-Either use crontab as described in **[CRONTAB-SETUP.md](CRONTAB-SETUP.md)** or consider using **systemd timers** instead. See **[DISTRIBUTION.md](DISTRIBUTION.md)** for instructions.
+Either use crontab as described in **[CRONTAB-SETUP.md](CRONTAB-SETUP.md)** or consider using **systemd timers** instead explained in **[DISTRIBUTION.md](DISTRIBUTION.md)**.
+
+## Other guides
+
+See the guides for more detailed instructions in case the quick start didn't work:
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Full deployment guide for Linux systems
+- **[CRONTAB-SETUP.md](CRONTAB-SETUP.md)** - Quick guide for crontab configuration
+- **[DISTRIBUTION.md](DISTRIBUTION.md)** - How to package and distribute this application
+
 
 # Other information
 
