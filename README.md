@@ -1,4 +1,4 @@
-# EnergyID Monitor
+# APsystems EZ1 2 EnergyID.eu monitor
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
