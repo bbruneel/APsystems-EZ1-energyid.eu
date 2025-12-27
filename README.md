@@ -93,7 +93,7 @@ Once everything is properly set up, and depending on on your chosen installation
 ```
 
 ### Configure scheduled runs
-Either use crontab as described in **[CRONTAB-SETUP.md](CRONTAB-SETUP.md)** or consider using **systemd timers** instead explained in **[DISTRIBUTION.md](DISTRIBUTION.md)**.
+Either use crontab as described in **[CRONTAB-SETUP.md](CRONTAB-SETUP.md)** or consider using **systemd timers** instead explained in **[DEPLOYMENT.md](DEPLOYMENT.md#alternative-using-systemd-timer-recommended-for-better-control)**.
 
 ## Other guides
 
