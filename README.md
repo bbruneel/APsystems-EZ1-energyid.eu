@@ -23,6 +23,10 @@ Follow these steps to get you up and running.
 Download the latest release from [GitHub Releases](https://github.com/bbruneel/APsystems-EZ1-energyid.eu/releases/latest) and extract the distribution package.
 
 ```bash
+# This will create a folder called 'energyid-monitor' with all files inside
+tar -xzf energyid-monitor-v1.0.0.tar.gz
+cd energyid-monitor
+
 # Use default directories
 ./scripts/deploy.sh
 
@@ -33,7 +37,7 @@ Download the latest release from [GitHub Releases](https://github.com/bbruneel/A
 ./scripts/deploy.sh --help
 ```
 
-Then configure your credentials in the appropriate `.env` file See [env.example](env.example) (default: `/var/lib/energyid-monitor/.env`) and set up scheduled runs.
+Then configure your credentials in the appropriate `.env` file. See [env.example](env.example) (default: `/var/lib/energyid-monitor/.env`) and set up scheduled runs.
 
 ---
 

@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 import time
@@ -238,5 +239,14 @@ async def main() -> None:
     logging_config.setup_logging()
     try:
         await run_energyid_flow()
-    except Exception:  # noqa: BLE001
+    except (
+        asyncio.TimeoutError,
+        aiohttp.ClientError,
+        ConnectionError,
+        OSError,
+    ) as exc:
+        # Log connection errors concisely without full stack trace
+        logger.error(f"EnergyID flow failed: Connection error - {exc}")
+    except Exception as exc:  # noqa: BLE001
+        # Log other errors with full stack trace for debugging
         logger.exception("EnergyID flow failed")

@@ -79,6 +79,7 @@ async def fetch_total_energy_lifetime(inverter: APsystemsEZ1M) -> float:
     """
     Retrieve and print the lifetime energy generated (e1 + e2).
     """
+    # Let connection errors bubble up to be handled at a higher level
     total_energy = await inverter.get_total_energy_lifetime()
     if total_energy is None:
         raise RuntimeError(
