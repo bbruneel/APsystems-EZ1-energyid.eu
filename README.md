@@ -62,8 +62,8 @@ curl -X POST "https://hooks.energyid.eu/hello" \
   }'
 ```
 
-
 #### Webhook ingestion
+
 Do a test and send measurements to the webhook with the headers from the response of the above. Put real data in the payload where `ts` is a https://www.unixtimestamp.com/ and 'pv' is the current total in kWh of your EZ1 microinverter.
 
 ```bash
@@ -77,21 +77,29 @@ curl -w "%{response_code}" -X POST "https://hooks.energyid.eu/webhook-in" \
   }'
 ```
 
-#### Troubleshooting
-- In case of Corporate SSL intercepts: point Python/uv to your coorporate self signed CA bundle before running commands (PowerShell example)  
+### Run the application
+
+Once everything is properly set up, and depending on on your chosen installation folder, you can use the `run.sh` script to test the app.
+
+```bash
+/var/lib/energyid-monitor/run.sh
+```
+
+### Troubleshooting
+
+In case of Corporate SSL intercepts: use `curl -k` (disables SSL checks) and point Python/uv to your coorporate self signed CA bundle before running commands.
+
+- (PowerShell example)
+
   ```powershell
   $env:SSL_CERT_FILE = 'C:\PathTo\cacert.pem'
   ```
+
 - Bash example:
+
   ```bash
   export SSL_CERT_FILE="/PathTo/cacert.pem"
   ```
-
-### Run the application
-Once everything is properly set up, and depending on on your chosen installation folder, you can use the `run.sh` script to test the app.
-```
-/var/lib/energyid-monitor/run.sh
-```
 
 ### Configure scheduled runs
 Either use crontab as described in **[CRONTAB-SETUP.md](CRONTAB-SETUP.md)** or consider using **systemd timers** instead explained in **[DEPLOYMENT.md](DEPLOYMENT.md#alternative-using-systemd-timer-recommended-for-better-control)**.
