@@ -106,7 +106,7 @@ In case of Corporate SSL intercepts: use `curl -k` (disables SSL checks) and poi
   ```
 
 ### Configure scheduled runs
-Either use crontab as described in **[CRONTAB-SETUP.md](CRONTAB-SETUP.md)** or consider using **systemd timers** instead explained in **[DEPLOYMENT.md](DEPLOYMENT.md#alternative-using-systemd-timer-recommended-for-better-control)**.
+Either use crontab as described in **[CRONTAB-SETUP.md](CRONTAB-SETUP.md)** or consider using **systemd timers** instead explained in **[DEPLOYMENT.md](DEPLOYMENT.md#alternative-using-systemd-timer-recommended-for-better-control)**. Match the interval to your EnergyID plan (`uploadInterval` from `/hello`: 24 h free, 15 min Premium, 60 s real-time add-on). You can also set `ENERGYID_UPLOAD_INTERVAL_SECONDS` (see offline queue below); the app enforces the stricter of that value and the last hello `uploadInterval` unless `ENERGYID_UPLOAD_INTERVAL_OVERRIDE=true`.
 
 ## Other guides
 
@@ -118,43 +118,41 @@ See the guides for more detailed instructions in case the quick start didn't wor
 
 # Other information
 
-## Token Caching Database
+## Token Caching and Offline Reading Queue
 
-The application uses SQLite to cache EnergyID bearer tokens and avoid unnecessary API calls.
+The application uses SQLite (`data/token.db`) for EnergyID tokens and an offline reading queue.
 
-### Database Setup
+**Tokens**
 
-- **Database Location**: `data/token.db` (automatically created on first run)
-- **SQLite Installation**: SQLite3 is typically pre-installed on most Linux systems. If needed:
-  ```bash
-  # Ubuntu/Debian
-  sudo apt-get install sqlite3
-  
-  # macOS (usually pre-installed)
-  brew install sqlite3
-  ```
-- **Schema Migrations**: Database tables are automatically created from SQL scripts in `dbscripts/` when the application first runs.
+- Schema migrations in `dbscripts/` run automatically on first use
+- Tokens are reused until they are within 1 hour of expiry
+- HTTP 401 from the webhook triggers an immediate `/hello` refresh and one retry
 
-### How Token Caching Works
+**Offline queue / batch catch-up**
 
-1. On startup, the application checks the database for a valid bearer token
-2. If a token exists and is not expired (with a 1-hour buffer), it uses the cached token
-3. If no token exists or it's expired/expiring soon, it fetches a new token from the EnergyID hello endpoint
-4. New tokens are stored in the database with their expiration time (extracted from the JWT)
+Each successful inverter read is stored locally before upload. If EnergyID is unreachable (ISP outage, etc.), readings stay pending (`sent_at` NULL). On the next successful run the app POSTs **all pending readings as one JSON array** in a single webhook call (EnergyID batch upload), then sets `sent_at` on those rows. Rows are kept until they exceed retention (not deleted on success). Inverter read failures do not enqueue a reading.
 
-This reduces API calls and improves reliability by reusing valid tokens across multiple runs.
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `ENERGYID_UPLOAD_INTERVAL_SECONDS` | `900` | Local minimum seconds between successful POSTs |
+| `ENERGYID_UPLOAD_INTERVAL_OVERRIDE` | `false` | If `true`, ignore hello's `uploadInterval` |
+| `ENERGYID_READING_RETENTION_SECONDS` | `604800` | Drop readings whose `ts` is older than now − this |
 
-### Database Management
+Effective upload interval (when override is false): `max(ENERGYID_UPLOAD_INTERVAL_SECONDS, last hello uploadInterval)`. Hello's interval is cached in `sync_state` whenever `/hello` runs. If that cache is empty and override is false, the app calls `/hello` once before rate-limit gating; if that call fails it falls back to the env interval (which may be stricter than the plan and can yield HTTP 429 until hello succeeds).
 
-- **View tokens**: 
-  ```bash
-  sqlite3 data/token.db "SELECT bearer_token, twin_id, datetime(exp, 'unixepoch') as expires_at FROM tokens ORDER BY exp DESC LIMIT 5;"
-  ```
-- **Clear cache**: 
-  ```bash
-  rm data/token.db
-  ```
-  The database will be recreated on the next run.
+View tokens / pending readings:
+
+```bash
+sqlite3 data/token.db "SELECT twin_id, datetime(exp, 'unixepoch') as expires_at FROM tokens ORDER BY exp DESC LIMIT 5;"
+sqlite3 data/token.db "SELECT id, ts, sent_at IS NULL as pending FROM readings ORDER BY ts DESC LIMIT 20;"
+sqlite3 data/token.db "SELECT * FROM sync_state;"
+```
+
+Clear cache (tokens and queued readings):
+
+```bash
+rm data/token.db
+```
 
 ## Logging
 

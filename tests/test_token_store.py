@@ -166,12 +166,14 @@ async def test_get_or_refresh_fetches_new_when_expired(
             "bearer_token": "new_bearer",
             "twin_id": "new_twin",
             "exp": new_exp,
+            "webhook_url": mock_config["webhook_url"],
+            "upload_interval_seconds": None,
         }
 
         result = await get_or_refresh_token(mock_session, mock_config, in_memory_db)
 
         # Should call hello to fetch new token
-        mock_hello.assert_called_once_with(mock_session, mock_config)
+        mock_hello.assert_called_once_with(mock_session, mock_config, in_memory_db)
 
         # Should return new token
         assert result["bearer_token"] == "new_bearer"
@@ -199,6 +201,8 @@ async def test_get_or_refresh_fetches_new_when_no_cache(
             "bearer_token": "first_bearer",
             "twin_id": "first_twin",
             "exp": new_exp,
+            "webhook_url": mock_config["webhook_url"],
+            "upload_interval_seconds": None,
         }
 
         result = await get_or_refresh_token(mock_session, mock_config, in_memory_db)
