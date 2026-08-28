@@ -134,7 +134,7 @@ Each successful inverter read is stored locally before upload. If EnergyID is un
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `ENERGYID_UPLOAD_INTERVAL_SECONDS` | `300` | Local minimum seconds between successful POSTs |
+| `ENERGYID_UPLOAD_INTERVAL_SECONDS` | `900` | Local minimum seconds between successful POSTs |
 | `ENERGYID_UPLOAD_INTERVAL_OVERRIDE` | `false` | If `true`, ignore hello's `uploadInterval` |
 | `ENERGYID_READING_RETENTION_SECONDS` | `604800` | Drop readings whose `ts` is older than now − this |
 

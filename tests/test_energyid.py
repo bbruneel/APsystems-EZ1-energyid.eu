@@ -308,7 +308,7 @@ def test_load_queue_env_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ENERGYID_UPLOAD_INTERVAL_OVERRIDE", raising=False)
     monkeypatch.delenv("ENERGYID_READING_RETENTION_SECONDS", raising=False)
 
-    assert load_upload_interval_seconds() == 300
+    assert load_upload_interval_seconds() == 900
     assert load_upload_interval_override() is False
     assert load_reading_retention_seconds() == 604800
 
