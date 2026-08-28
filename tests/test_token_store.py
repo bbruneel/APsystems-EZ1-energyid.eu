@@ -3,10 +3,19 @@ import time
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+import aiosqlite
 import pytest
 
 from energyid_monitor import token_store
 from energyid_monitor.energyid import ProvisioningConfig, get_or_refresh_token
+
+
+async def _count_tokens(db_path: str) -> int:
+    async with aiosqlite.connect(db_path) as conn:
+        cursor = await conn.execute("SELECT COUNT(*) FROM tokens")
+        row = await cursor.fetchone()
+        await cursor.close()
+        return int(row[0])
 
 
 @pytest.fixture
@@ -86,6 +95,79 @@ async def test_get_latest_token_returns_most_recent(in_memory_db: str) -> None:
     retrieved = await token_store.get_latest_token(in_memory_db)
     assert retrieved is not None
     assert retrieved["bearer_token"] == "new_bearer"
+
+
+@pytest.mark.asyncio
+async def test_store_token_removes_stale_tokens(in_memory_db: str) -> None:
+    """Test that storing a new token deletes expired and expiring-soon tokens."""
+    await token_store.ensure_db(in_memory_db)
+    now = int(time.time())
+
+    async with aiosqlite.connect(in_memory_db) as conn:
+        await conn.execute(
+            """
+            INSERT INTO tokens (bearer_token, twin_id, exp, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("expired_bearer", "expired_twin", now - 100, now, now),
+        )
+        await conn.execute(
+            """
+            INSERT INTO tokens (bearer_token, twin_id, exp, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("expiring_soon_bearer", "expiring_soon_twin", now + 1800, now, now),
+        )
+        await conn.commit()
+
+    assert await _count_tokens(in_memory_db) == 2
+
+    await token_store.store_token(
+        {
+            "bearer_token": "fresh_bearer",
+            "twin_id": "fresh_twin",
+            "exp": now + 7200,
+        },
+        in_memory_db,
+    )
+
+    assert await _count_tokens(in_memory_db) == 1
+    retrieved = await token_store.get_latest_token(in_memory_db)
+    assert retrieved is not None
+    assert retrieved["bearer_token"] == "fresh_bearer"
+
+
+@pytest.mark.asyncio
+async def test_get_latest_token_does_not_clean_up_stale_tokens(
+    in_memory_db: str,
+) -> None:
+    """Test that reading the latest token does not delete stale rows."""
+    await token_store.ensure_db(in_memory_db)
+    now = int(time.time())
+
+    async with aiosqlite.connect(in_memory_db) as conn:
+        await conn.execute(
+            """
+            INSERT INTO tokens (bearer_token, twin_id, exp, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("expired_bearer", "expired_twin", now - 100, now, now),
+        )
+        await conn.execute(
+            """
+            INSERT INTO tokens (bearer_token, twin_id, exp, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            ("valid_bearer", "valid_twin", now + 7200, now, now),
+        )
+        await conn.commit()
+
+    assert await _count_tokens(in_memory_db) == 2
+
+    retrieved = await token_store.get_latest_token(in_memory_db)
+    assert retrieved is not None
+    assert retrieved["bearer_token"] == "valid_bearer"
+    assert await _count_tokens(in_memory_db) == 2
 
 
 def test_is_token_valid_with_buffer() -> None:

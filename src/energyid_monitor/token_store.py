@@ -37,6 +37,21 @@ async def ensure_db(db_path: str | Path = DEFAULT_DB_PATH) -> None:
         await conn.commit()
 
 
+async def cleanup_stale_tokens(
+    db_path: str | Path = DEFAULT_DB_PATH, now_seconds: int | None = None
+) -> int:
+    """Delete tokens that are expired or within the refresh buffer."""
+    db_path_str, is_uri, _ = _normalize_db_path(db_path)
+    cutoff = (now_seconds or int(time.time())) + EXPIRY_BUFFER_SECONDS
+    async with aiosqlite.connect(db_path_str, uri=is_uri) as conn:
+        cursor = await conn.execute(
+            "DELETE FROM tokens WHERE exp <= ?",
+            (cutoff,),
+        )
+        await conn.commit()
+        return cursor.rowcount
+
+
 async def get_latest_token(db_path: str | Path = DEFAULT_DB_PATH) -> StoredToken | None:
     """Return the most recent token by expiration, or None if missing."""
     db_path_str, is_uri, _ = _normalize_db_path(db_path)
@@ -76,6 +91,8 @@ async def store_token(
             (token["bearer_token"], token["twin_id"], int(token["exp"]), now, now),
         )
         await conn.commit()
+
+    await cleanup_stale_tokens(db_path, now)
 
 
 def is_token_valid(token: StoredToken, now_seconds: int | None = None) -> bool:
