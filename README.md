@@ -4,7 +4,7 @@
 
 [![Release](https://github.com/bbruneel/APsystems-EZ1-energyid.eu/actions/workflows/release.yml/badge.svg)](https://github.com/bbruneel/APsystems-EZ1-energyid.eu/actions/workflows/release.yml)
 
-Python application that reads solar inverter data from APsystems EZ1 microinverters and sends it to the EnergyID platform every 5 minutes.
+Python application that reads solar inverter data from APsystems EZ1 microinverters every 5 minutes and sends it to the EnergyID platform every 15 minutes.
 
 This requires
 - An APsystems EZ1 microinverter running in local mode. To set your inverter to local mode you can refer to the instructions here: https://github.com/SonnenladenGmbH/APsystems-EZ1-API#setup-your-inverter You might want to logout from the app on your smartphone when doing so. (this GitHub repo provides the dependency to access the microinverter)
