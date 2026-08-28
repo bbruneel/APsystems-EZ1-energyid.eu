@@ -138,8 +138,10 @@ async def test_store_token_removes_stale_tokens(in_memory_db: str) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_latest_token_cleans_up_stale_tokens(in_memory_db: str) -> None:
-    """Test that reading the latest token removes stale rows from the database."""
+async def test_get_latest_token_does_not_clean_up_stale_tokens(
+    in_memory_db: str,
+) -> None:
+    """Test that reading the latest token does not delete stale rows."""
     await token_store.ensure_db(in_memory_db)
     now = int(time.time())
 
@@ -165,7 +167,7 @@ async def test_get_latest_token_cleans_up_stale_tokens(in_memory_db: str) -> Non
     retrieved = await token_store.get_latest_token(in_memory_db)
     assert retrieved is not None
     assert retrieved["bearer_token"] == "valid_bearer"
-    assert await _count_tokens(in_memory_db) == 1
+    assert await _count_tokens(in_memory_db) == 2
 
 
 def test_is_token_valid_with_buffer() -> None:

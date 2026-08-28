@@ -54,7 +54,6 @@ async def cleanup_stale_tokens(
 
 async def get_latest_token(db_path: str | Path = DEFAULT_DB_PATH) -> StoredToken | None:
     """Return the most recent token by expiration, or None if missing."""
-    await cleanup_stale_tokens(db_path)
     db_path_str, is_uri, _ = _normalize_db_path(db_path)
     async with aiosqlite.connect(db_path_str, uri=is_uri) as conn:
         conn.row_factory = aiosqlite.Row
