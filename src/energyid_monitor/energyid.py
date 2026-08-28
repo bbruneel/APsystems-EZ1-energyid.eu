@@ -1,32 +1,36 @@
 import asyncio
 import base64
 import json
+import os
+import sys
 import time
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import aiohttp
 from dotenv import load_dotenv
 from loguru import logger
 
-from energyid_monitor import common, inverter, logging_config, token_store
+from energyid_monitor import (common, inverter, logging_config, reading_store,
+                              token_store)
 
 load_dotenv(override=True)
+
+SUCCESS_STATUS_CODES = {200, 201}
+
+DEFAULT_UPLOAD_INTERVAL_SECONDS = 300
+DEFAULT_READING_RETENTION_SECONDS = 604800
+WebhookPayload = dict[str, Any] | list[dict[str, Any]]
 
 
 def _decode_jwt_exp(bearer_token: str) -> int:
     """Extract exp claim from JWT bearer token without verification."""
-    # Remove "Bearer " prefix if present
     token = bearer_token.replace("Bearer ", "").strip()
-
-    # JWT has 3 parts separated by dots: header.payload.signature
     parts = token.split(".")
     if len(parts) != 3:
         raise ValueError("Invalid JWT token format")
 
-    # Decode the payload (second part)
     payload_encoded = parts[1]
-    # Add padding if needed (JWT base64 encoding doesn't include padding)
     padding = "=" * (4 - len(payload_encoded) % 4)
     payload_decoded = base64.urlsafe_b64decode(payload_encoded + padding)
     payload = json.loads(payload_decoded)
@@ -34,8 +38,63 @@ def _decode_jwt_exp(bearer_token: str) -> int:
     exp = payload.get("exp")
     if not exp:
         raise ValueError("JWT token does not contain exp claim")
-
     return int(exp)
+
+
+def _parse_positive_int_env(name: str, default: int) -> int:
+    """Parse a positive integer environment variable."""
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        value = int(raw.strip())
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer, got {raw!r}") from exc
+    if value <= 0:
+        raise ValueError(f"{name} must be > 0, got {value}")
+    return value
+
+
+def _parse_bool_env(name: str, default: bool = False) -> bool:
+    """Parse a boolean environment variable (true/1/yes/on)."""
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    return raw.strip().lower() in ("true", "1", "yes", "on")
+
+
+def load_upload_interval_seconds() -> int:
+    """Local minimum seconds between successful webhook POSTs."""
+    return _parse_positive_int_env(
+        "ENERGYID_UPLOAD_INTERVAL_SECONDS", DEFAULT_UPLOAD_INTERVAL_SECONDS
+    )
+
+
+def load_upload_interval_override() -> bool:
+    """If true, ignore hello's uploadInterval and use the env value only."""
+    return _parse_bool_env("ENERGYID_UPLOAD_INTERVAL_OVERRIDE", default=False)
+
+
+def load_reading_retention_seconds() -> int:
+    """How long to keep stored readings (by payload ts) before pruning."""
+    return _parse_positive_int_env(
+        "ENERGYID_READING_RETENTION_SECONDS", DEFAULT_READING_RETENTION_SECONDS
+    )
+
+
+def effective_upload_interval(
+    env_seconds: int,
+    hello_cached_seconds: int | None,
+    *,
+    override: bool,
+) -> int:
+    """Compute the enforced upload interval.
+
+    Default: max(env, cached hello). With override: env only.
+    """
+    if override or hello_cached_seconds is None:
+        return env_seconds
+    return max(env_seconds, hello_cached_seconds)
 
 
 class HelloTokens(TypedDict):
@@ -44,6 +103,8 @@ class HelloTokens(TypedDict):
     bearer_token: str
     twin_id: str
     exp: int
+    webhook_url: str
+    upload_interval_seconds: int | None
 
 
 class ProvisioningConfig(TypedDict):
@@ -57,10 +118,17 @@ class ProvisioningConfig(TypedDict):
     webhook_url: str
 
 
+class ActiveCredentials(TypedDict):
+    """Bearer credentials plus the webhook URL to use for this post."""
+
+    bearer_token: str
+    twin_id: str
+    exp: int
+    webhook_url: str
+
+
 def load_provisioning_config() -> ProvisioningConfig:
-    """
-    Load provisioning credentials and device metadata from the environment.
-    """
+    """Load provisioning credentials and device metadata from the environment."""
     return {
         "provisioning_key": common._require_env("ENERGYID_KEY"),
         "provisioning_secret": common._require_env("ENERGYID_SECRET"),
@@ -71,12 +139,25 @@ def load_provisioning_config() -> ProvisioningConfig:
     }
 
 
+async def _persist_hello_upload_interval(
+    upload_interval_seconds: int | None,
+    db_path: str | Path,
+) -> None:
+    """Cache hello uploadInterval in sync_state when present."""
+    if upload_interval_seconds is None:
+        return
+    await reading_store.set_hello_upload_interval(upload_interval_seconds, db_path)
+    logger.info(
+        f"Cached EnergyID hello uploadInterval={upload_interval_seconds} seconds"
+    )
+
+
 async def call_hello(
-    session: aiohttp.ClientSession, config: ProvisioningConfig
+    session: aiohttp.ClientSession,
+    config: ProvisioningConfig,
+    db_path: str | Path = token_store.DEFAULT_DB_PATH,
 ) -> HelloTokens:
-    """
-    Call the EnergyID hello endpoint and return bearer token + twin id + exp.
-    """
+    """Call the EnergyID hello endpoint and return bearer token + twin id + exp."""
     headers = {
         "Content-Type": "application/json",
         "X-Provisioning-Key": config["provisioning_key"],
@@ -91,8 +172,17 @@ async def call_hello(
 
         body = await resp.json()
         logger.debug(f"Hello response body: {body}")
-        headers_dict = body.get("headers") or {}
 
+        if body.get("claimCode") or body.get("claimUrl"):
+            claim_url = body.get("claimUrl", "")
+            claim_code = body.get("claimCode", "")
+            raise RuntimeError(
+                "EnergyID device is not claimed yet. Open the claim URL in a browser "
+                f"and link it to your record, then retry. claimCode={claim_code} "
+                f"claimUrl={claim_url}"
+            )
+
+        headers_dict = body.get("headers") or {}
         bearer_token = (
             headers_dict.get("authorization")
             or body.get("bearerToken")
@@ -103,38 +193,73 @@ async def call_hello(
             or body.get("twinId")
             or body.get("ENERGYID_TWIN_ID")
         )
+        webhook_url = body.get("webhookUrl") or config["webhook_url"]
 
         if not bearer_token or not twin_id:
             raise RuntimeError("Hello response missing bearer token or twin id")
 
-        # Extract exp from JWT token
         exp = _decode_jwt_exp(bearer_token)
+        policy = body.get("webhookPolicy") or {}
+        raw_interval = policy.get("uploadInterval")
+        upload_interval_seconds: int | None = None
+        if raw_interval is not None:
+            try:
+                upload_interval_seconds = int(raw_interval)
+            except (TypeError, ValueError):
+                logger.warning(
+                    f"Ignoring non-integer hello uploadInterval: {raw_interval!r}"
+                )
+            else:
+                if upload_interval_seconds <= 0:
+                    logger.warning(
+                        f"Ignoring non-positive hello uploadInterval: {upload_interval_seconds}"
+                    )
+                    upload_interval_seconds = None
+                else:
+                    logger.info(
+                        f"EnergyID uploadInterval is {upload_interval_seconds} seconds"
+                    )
+
+        await _persist_hello_upload_interval(upload_interval_seconds, db_path)
 
         masked_token = logging_config.mask_token(bearer_token)
         logger.debug(f"Extracted: bearer={masked_token}, twin={twin_id}, exp={exp}")
-
-        return {"bearer_token": bearer_token, "twin_id": twin_id, "exp": exp}
+        return {
+            "bearer_token": bearer_token,
+            "twin_id": twin_id,
+            "exp": exp,
+            "webhook_url": webhook_url,
+            "upload_interval_seconds": upload_interval_seconds,
+        }
 
 
 async def get_or_refresh_token(
     session: aiohttp.ClientSession,
     config: ProvisioningConfig,
     db_path: str | Path = token_store.DEFAULT_DB_PATH,
-) -> token_store.StoredToken:
-    """
-    Get a valid token from cache or fetch a new one if missing/expired/expiring soon.
+) -> ActiveCredentials:
+    """Get a valid token from cache or fetch a new one if missing/expired.
+
+    When a fresh `/hello` response is used, the webhook URL from that response
+    is preferred (falling back to ENERGYID_WEBHOOK_URL). Cached tokens reuse
+    the configured webhook URL from the environment.
     """
     await token_store.ensure_db(db_path)
     cached = await token_store.get_latest_token(db_path)
 
     if cached and token_store.is_token_valid(cached):
         logger.info("Using cached token (valid)")
-        return cached
+        return {
+            "bearer_token": cached["bearer_token"],
+            "twin_id": cached["twin_id"],
+            "exp": cached["exp"],
+            "webhook_url": config["webhook_url"],
+        }
 
     logger.info(
         "Fetching new token from hello endpoint (cache miss or expired/expiring)"
     )
-    hello_response = await call_hello(session, config)
+    hello_response = await call_hello(session, config, db_path)
     new_token: token_store.StoredToken = {
         "bearer_token": hello_response["bearer_token"],
         "twin_id": hello_response["twin_id"],
@@ -142,49 +267,96 @@ async def get_or_refresh_token(
     }
     await token_store.store_token(new_token, db_path)
     logger.info("New token stored in database")
-    return new_token
+    return {
+        "bearer_token": hello_response["bearer_token"],
+        "twin_id": hello_response["twin_id"],
+        "exp": hello_response["exp"],
+        "webhook_url": hello_response["webhook_url"],
+    }
 
 
 async def post_webhook_in(
     session: aiohttp.ClientSession,
     bearer_token: str,
     twin_id: str,
-    pv_value: float,
-    timestamp: int,
-    config: ProvisioningConfig,
+    payload: WebhookPayload,
+    webhook_url: str,
 ) -> dict:
-    """
-    Send measurement payload to webhook-in using hello tokens.
-    """
+    """Send measurement payload (object or batch array) to webhook-in."""
     headers = {
         "Content-Type": "application/json",
         "authorization": bearer_token,
         "x-twin-id": twin_id,
     }
-    payload = {"ts": str(timestamp), "pv": pv_value}
 
-    async with session.post(
-        config["webhook_url"], json=payload, headers=headers
-    ) as resp:
+    async with session.post(webhook_url, json=payload, headers=headers) as resp:
         text = await resp.text()
-        if resp.status != 200:
+        if resp.status == 401:
+            raise PermissionError("Webhook-in returned 401; token must be refreshed")
+        if resp.status == 429:
+            retry_after = resp.headers.get("Retry-After")
+            detail = f"Retry-After={retry_after}" if retry_after else text
+            raise RuntimeError(f"Webhook-in rate limited (429): {detail}")
+        if resp.status not in SUCCESS_STATUS_CODES:
             raise RuntimeError(f"Webhook-in failed ({resp.status}): {text}")
 
-        # Try to parse JSON if provided, otherwise return text.
         try:
             return json.loads(text)
         except json.JSONDecodeError:
             return {"status": resp.status, "body": text}
 
 
+async def _post_with_token_retry(
+    session: aiohttp.ClientSession,
+    config: ProvisioningConfig,
+    payload: WebhookPayload,
+    db_path: str | Path = token_store.DEFAULT_DB_PATH,
+) -> dict:
+    """Post webhook data, refreshing the token once on HTTP 401."""
+    credentials = await get_or_refresh_token(session, config, db_path)
+    try:
+        return await post_webhook_in(
+            session,
+            bearer_token=credentials["bearer_token"],
+            twin_id=credentials["twin_id"],
+            payload=payload,
+            webhook_url=credentials["webhook_url"],
+        )
+    except PermissionError:
+        logger.warning("Webhook returned 401; refreshing EnergyID token and retrying")
+        hello_response = await call_hello(session, config, db_path)
+        new_token: token_store.StoredToken = {
+            "bearer_token": hello_response["bearer_token"],
+            "twin_id": hello_response["twin_id"],
+            "exp": hello_response["exp"],
+        }
+        await token_store.store_token(new_token, db_path)
+        return await post_webhook_in(
+            session,
+            bearer_token=new_token["bearer_token"],
+            twin_id=new_token["twin_id"],
+            payload=payload,
+            webhook_url=hello_response["webhook_url"],
+        )
+
+
+def _should_skip_upload(
+    last_successful_upload_at: int | None,
+    effective_interval: int,
+    *,
+    now_seconds: int | None = None,
+) -> bool:
+    """True when the last successful POST was within the effective interval."""
+    if last_successful_upload_at is None:
+        return False
+    now = now_seconds if now_seconds is not None else int(time.time())
+    return (now - last_successful_upload_at) < effective_interval
+
+
 async def _fetch_live_pv_output(inverter_client: inverter.APsystemsEZ1M) -> float:
-    """
-    Read the live PV output in watts from the inverter, convert it to
-    kilowatts, and return the converted value.
-    """
+    """Read live PV output in watts, convert to kW, and return."""
     logger.info("Fetching live PV output")
     output_watts = await inverter.read_total_output_value(inverter_client)
-    # output_watts = 0.0 # TODO: Replace with actual output watts
     output_kw = output_watts / 1000.0
     logger.info(f"Output watts: {output_watts}, Output kilowatts: {output_kw}")
     return output_kw
@@ -193,49 +365,112 @@ async def _fetch_live_pv_output(inverter_client: inverter.APsystemsEZ1M) -> floa
 async def _fetch_total_energy_lifetime(
     inverter_client: inverter.APsystemsEZ1M,
 ) -> float:
-    """
-    Read the lifetime PV energy in kilowatt-hours from the inverter.
-    """
+    """Read lifetime PV energy in kilowatt-hours from the inverter."""
     logger.info("Fetching lifetime PV energy (kWh)")
     total_energy = await inverter.fetch_total_energy_lifetime(inverter_client)
     return float(total_energy)
 
 
-async def run_energyid_flow() -> None:
-    """
-    Full flow: load env, get cached or refreshed tokens, read inverter PV, post webhook-in.
-    """
+def _build_energyid_payload(timestamp: int, pv_value: float) -> dict[str, Any]:
+    """Build the EnergyID webhook payload for EZ1 lifetime energy."""
+    return {"ts": str(timestamp), "pv": pv_value}
+
+
+async def run_energyid_flow(
+    db_path: str | Path = token_store.DEFAULT_DB_PATH,
+) -> None:
+    """Full flow: read EZ1, enqueue reading, batch-flush pending webhooks."""
     inverter_config = inverter.load_inverter_config()
     inverter_client = inverter.initialize(inverter_config["ip_address"])
-
     config = load_provisioning_config()
+    env_interval = load_upload_interval_seconds()
+    override = load_upload_interval_override()
+    retention_seconds = load_reading_retention_seconds()
 
-    async with aiohttp.ClientSession() as session:
-        tokens = await get_or_refresh_token(session, config)
-        # Fetch and log live PV output watts
-        await _fetch_live_pv_output(inverter_client)
-        # Fetch lifetime PV energy in kilowatt-hours to pass to the webhook
-        pv_value = await _fetch_total_energy_lifetime(inverter_client)
-        timestamp = int(time.time())
-        webhook_response = await post_webhook_in(
-            session,
-            bearer_token=tokens["bearer_token"],
-            twin_id=tokens["twin_id"],
-            pv_value=pv_value,
-            timestamp=timestamp,
-            config=config,
+    await _fetch_live_pv_output(inverter_client)
+    pv_value = await _fetch_total_energy_lifetime(inverter_client)
+    timestamp = int(time.time())
+    payload = _build_energyid_payload(timestamp, pv_value)
+    logger.info(f"EnergyID payload: {payload}")
+
+    await token_store.ensure_db(db_path)
+    reading_id = await reading_store.enqueue(payload, db_path)
+    logger.info(f"Enqueued reading id={reading_id} ts={payload['ts']}")
+
+    deleted = await reading_store.prune_expired(retention_seconds, db_path)
+    if deleted:
+        logger.info(
+            f"Pruned {deleted} reading(s) older than {retention_seconds} seconds"
         )
 
-    masked_bearer = logging_config.mask_token(tokens["bearer_token"])
-    logger.info("Tokens acquired (cached or fresh)")
-    logger.debug(
-        f"Token details - bearer: {masked_bearer}, twin: {tokens['twin_id']}, exp: {tokens['exp']}"
+    sync_state = await reading_store.get_sync_state(db_path)
+
+    async with aiohttp.ClientSession() as session:
+        hello_cached = sync_state["hello_upload_interval_seconds"]
+        if not override and hello_cached is None:
+            try:
+                logger.info(
+                    "No cached hello uploadInterval; calling /hello before "
+                    "rate-limit gating"
+                )
+                await call_hello(session, config, db_path)
+                sync_state = await reading_store.get_sync_state(db_path)
+                hello_cached = sync_state["hello_upload_interval_seconds"]
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Failed to refresh hello uploadInterval before gating "
+                    "({!r}); falling back to ENERGYID_UPLOAD_INTERVAL_SECONDS={} "
+                    "(may hit HTTP 429 if that undercuts the plan)",
+                    exc,
+                    env_interval,
+                )
+
+        interval = effective_upload_interval(
+            env_interval,
+            hello_cached,
+            override=override,
+        )
+        logger.info(
+            "Effective upload interval={}s (env={}s, hello_cached={}, override={})",
+            interval,
+            env_interval,
+            hello_cached,
+            override,
+        )
+
+        if _should_skip_upload(sync_state["last_successful_upload_at"], interval):
+            elapsed = timestamp - int(sync_state["last_successful_upload_at"] or 0)
+            logger.info(
+                "Skipping webhook POST: last success {}s ago "
+                "(effective interval {}s); reading retained as pending",
+                elapsed,
+                interval,
+            )
+            return
+
+        pending = await reading_store.list_pending(db_path)
+        if not pending:
+            logger.info("No pending readings to upload")
+            return
+
+        batch = [row["payload"] for row in pending]
+        reading_ids = [row["id"] for row in pending]
+        logger.info(f"Uploading {len(batch)} pending reading(s) as one webhook batch")
+
+        webhook_response = await _post_with_token_retry(
+            session, config, batch, db_path=db_path
+        )
+
+    uploaded_at = int(time.time())
+    await reading_store.mark_sent(reading_ids, db_path, sent_at=uploaded_at)
+    await reading_store.set_last_successful_upload(uploaded_at, db_path)
+    logger.info(
+        f"Webhook-in response: {webhook_response}; "
+        f"marked {len(reading_ids)} reading(s) sent"
     )
-    logger.info(f"Webhook-in response: {webhook_response}")
 
 
 async def main() -> None:
-    # Initialize logging configuration
     logging_config.setup_logging()
     try:
         await run_energyid_flow()
@@ -245,8 +480,8 @@ async def main() -> None:
         ConnectionError,
         OSError,
     ) as exc:
-        # Log connection errors concisely without full stack trace
         logger.error(f"EnergyID flow failed: Connection error - {exc}")
-    except Exception as exc:  # noqa: BLE001
-        # Log other errors with full stack trace for debugging
+        sys.exit(1)
+    except Exception:  # noqa: BLE001
         logger.exception("EnergyID flow failed")
+        sys.exit(1)

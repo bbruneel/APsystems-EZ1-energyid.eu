@@ -11,12 +11,14 @@ This package provides functionality to:
 __version__ = "0.1.0"
 
 # Public API exports
-from . import common, energyid, inverter, logging_config, token_store
+from . import (common, energyid, inverter, logging_config, reading_store,
+               token_store)
 
 __all__ = [
     "common",
     "energyid",
     "inverter",
     "logging_config",
+    "reading_store",
     "token_store",
 ]
